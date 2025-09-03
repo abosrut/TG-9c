@@ -4,7 +4,6 @@ import os
 from datetime import date, timedelta
 
 DB_URL = os.getenv("DATABASE_URL")
-DB_NAME = "schedule.db"
 
 HARDCODED_SCHEDULE = [
     ('Пн', 1, 'Французский язык', '08:10 - 08:55'), ('Пн', 2, 'Украинский язык', '09:00 - 09:45'),
@@ -30,8 +29,7 @@ HARDCODED_SCHEDULE = [
 DAYS_ORDER = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 def get_db_connection():
-    conn = psycopg2.connect(DB_URL)
-    return conn
+    return psycopg2.connect(DB_URL)
 
 def init_and_populate_db():
     conn = get_db_connection()
@@ -58,27 +56,60 @@ def add_homework(subject, due_date, task):
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO homework (subject_name, due_date, task) VALUES (%s, %s, %s)",
-        (subject, due_date, task)
-    )
+        (subject, due_date, task) )
     conn.commit()
     cursor.close()
     conn.close()
+
+def get_schedule_for_day(day_of_week):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT lesson_number, subject_name, lesson_time FROM schedule WHERE day_of_week = %s ORDER BY lesson_number", (day_of_week,))
+    schedule = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return schedule
+
+def find_subject_schedule(subject_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    search_query = f'{subject_name}%'
+    # Используем ILIKE для регистронезависимого поиска в PostgreSQL
+    cursor.execute("SELECT day_of_week, lesson_number, lesson_time FROM schedule WHERE subject_name ILIKE %s", (search_query,))
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return result
+
+def get_homework_for_date(due_date):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT subject_name, task FROM homework WHERE due_date = %s", (due_date,))
+    homework = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return homework
+
+def get_subjects_by_frequency():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT subject_name FROM schedule GROUP BY subject_name ORDER BY COUNT(subject_name) DESC")
+    subjects = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return subjects
 
 def get_next_lesson_date(subject, from_date):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     start_day_index = from_date.weekday()
+    # Создаем список дней недели, начиная с сегодняшнего
     ordered_days_of_week = DAYS_ORDER[start_day_index:] + DAYS_ORDER[:start_day_index]
     
     for day_offset, day_name_ukr in enumerate(ordered_days_of_week):
         cursor.execute("SELECT COUNT(*) FROM schedule WHERE day_of_week = %s AND subject_name = %s", (day_name_ukr, subject))
         if cursor.fetchone()[0] > 0:
-            # Важно: смещение для сегодняшнего дня 0, если сегодня есть урок.
-            # Если сегодня уроков нет, а есть завтра, смещение 1.
-            # Но если сегодня пн, а урок во вт, то смещение = 1.
-            # Если сегодня пт, а урок в пн, то смещение = 3.
-            # Логика timedelta правильная.
             next_date = from_date + timedelta(days=day_offset)
             conn.close()
             return next_date.strftime("%Y-%m-%d")
