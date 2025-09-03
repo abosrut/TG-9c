@@ -12,8 +12,8 @@ def main():
 
     bot_data = { 'db': database_manager }
 
+    # Правильная последовательность: сначала .build(), потом .bot_data.update()
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    
     application.bot_data.update(bot_data)
     
     application.add_handler(CommandHandler("start", telegram_bot.start))
