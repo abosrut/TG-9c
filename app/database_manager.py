@@ -4,6 +4,7 @@ import os
 from datetime import date, timedelta
 
 DB_URL = os.getenv("DATABASE_URL")
+DB_NAME = "schedule.db"
 
 HARDCODED_SCHEDULE = [
     ('Пн', 1, 'Французский язык', '08:10 - 08:55'), ('Пн', 2, 'Украинский язык', '09:00 - 09:45'),
