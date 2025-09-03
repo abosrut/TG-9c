@@ -1,12 +1,16 @@
 #!/bin/bash
 
-# Устанавливаем все зависимости
 pip install -r requirements.txt
 
-# Запускаем веб-сервер Flask в фоновом режиме
-# Знак '&' в конце означает "запустить в фоне"
+# Шаг 1: Создаем/очищаем таблицы в базе данных PostgreSQL
+echo "Initializing database..."
+python -c "from app import database_manager; database_manager.init_and_populate_db()"
+echo "Database initialized."
+
+# Шаг 2: Запускаем веб-сервер в фоновом режиме
+echo "Starting web server..."
 python webapp/backend/server.py &
 
-# Запускаем бота в основном (foreground) режиме
-# Этот процесс будет держать сервис активным
+# Шаг 3: Запускаем бота в основном режиме
+echo "Starting Telegram bot..."
 python main.py
