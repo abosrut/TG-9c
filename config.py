@@ -1,0 +1,3 @@
+# config.py
+TELEGRAM_BOT_TOKEN = "7788248308:AAFAoFbqf5O5JKbD3ZT9ZUD6f5YB8GwTDEs"
+WEBAPP_URL = "https://4aa375740474.ngrok-free.app/"
