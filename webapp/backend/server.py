@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import os
 import sys
 from datetime import datetime
+import psycopg2.extras
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
