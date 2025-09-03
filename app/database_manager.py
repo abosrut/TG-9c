@@ -1,9 +1,7 @@
-import psycopg2
-import psycopg2.extras
-import os
+import sqlite3
 from datetime import date, timedelta
 
-DB_URL = os.getenv("DATABASE_URL")
+DB_NAME = 'schedule.db'
 
 HARDCODED_SCHEDULE = [
     ('Пн', 1, 'Французский язык', '08:10 - 08:55'), ('Пн', 2, 'Украинский язык', '09:00 - 09:45'),
@@ -29,90 +27,81 @@ HARDCODED_SCHEDULE = [
 DAYS_ORDER = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 def get_db_connection():
-    return psycopg2.connect(DB_URL)
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_and_populate_db():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS schedule, homework;")
+    cursor.execute("DROP TABLE IF EXISTS schedule")
+    cursor.execute("DROP TABLE IF EXISTS homework")
     cursor.execute('''
     CREATE TABLE schedule (
-        id SERIAL PRIMARY KEY, day_of_week TEXT NOT NULL, lesson_number INTEGER NOT NULL,
-        subject_name TEXT NOT NULL, lesson_time TEXT );''')
+        id INTEGER PRIMARY KEY AUTOINCREMENT, day_of_week TEXT NOT NULL, lesson_number INTEGER NOT NULL,
+        subject_name TEXT NOT NULL, lesson_time TEXT )''')
     cursor.execute('''
     CREATE TABLE homework (
-        id SERIAL PRIMARY KEY, subject_name TEXT NOT NULL, due_date DATE NOT NULL,
-        task TEXT NOT NULL, is_completed BOOLEAN DEFAULT FALSE );''')
-    
-    insert_query = "INSERT INTO schedule (day_of_week, lesson_number, subject_name, lesson_time) VALUES (%s, %s, %s, %s)"
-    psycopg2.extras.execute_batch(cursor, insert_query, HARDCODED_SCHEDULE)
-    
+        id INTEGER PRIMARY KEY AUTOINCREMENT, subject_name TEXT NOT NULL, due_date TEXT NOT NULL,
+        task TEXT NOT NULL, is_completed INTEGER DEFAULT 0 )''')
+    cursor.executemany(
+        "INSERT INTO schedule (day_of_week, lesson_number, subject_name, lesson_time) VALUES (?, ?, ?, ?)",
+        HARDCODED_SCHEDULE )
     conn.commit()
-    cursor.close()
     conn.close()
 
 def add_homework(subject, due_date, task):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO homework (subject_name, due_date, task) VALUES (%s, %s, %s)",
+        "INSERT INTO homework (subject_name, due_date, task) VALUES (?, ?, ?)",
         (subject, due_date, task) )
     conn.commit()
-    cursor.close()
     conn.close()
 
 def get_schedule_for_day(day_of_week):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT lesson_number, subject_name, lesson_time FROM schedule WHERE day_of_week = %s ORDER BY lesson_number", (day_of_week,))
+    cursor.execute("SELECT lesson_number, subject_name, lesson_time FROM schedule WHERE day_of_week = ? ORDER BY lesson_number", (day_of_week,))
     schedule = cursor.fetchall()
-    cursor.close()
     conn.close()
-    return schedule
+    return [dict(row) for row in schedule]
 
 def find_subject_schedule(subject_name):
     conn = get_db_connection()
     cursor = conn.cursor()
     search_query = f'{subject_name}%'
-    # Используем ILIKE для регистронезависимого поиска в PostgreSQL
-    cursor.execute("SELECT day_of_week, lesson_number, lesson_time FROM schedule WHERE subject_name ILIKE %s", (search_query,))
+    cursor.execute("SELECT day_of_week, lesson_number, lesson_time FROM schedule WHERE subject_name LIKE ? COLLATE NOCASE", (search_query,))
     result = cursor.fetchall()
-    cursor.close()
     conn.close()
-    return result
+    return [dict(row) for row in result]
 
 def get_homework_for_date(due_date):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT subject_name, task FROM homework WHERE due_date = %s", (due_date,))
+    cursor.execute("SELECT subject_name, task FROM homework WHERE due_date = ?", (due_date,))
     homework = cursor.fetchall()
-    cursor.close()
     conn.close()
-    return homework
+    return [dict(row) for row in homework]
 
 def get_subjects_by_frequency():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT subject_name FROM schedule GROUP BY subject_name ORDER BY COUNT(subject_name) DESC")
     subjects = [row[0] for row in cursor.fetchall()]
-    cursor.close()
     conn.close()
     return subjects
 
 def get_next_lesson_date(subject, from_date):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     start_day_index = from_date.weekday()
-    # Создаем список дней недели, начиная с сегодняшнего
     ordered_days_of_week = DAYS_ORDER[start_day_index:] + DAYS_ORDER[:start_day_index]
-    
     for day_offset, day_name_ukr in enumerate(ordered_days_of_week):
-        cursor.execute("SELECT COUNT(*) FROM schedule WHERE day_of_week = %s AND subject_name = %s", (day_name_ukr, subject))
+        cursor.execute("SELECT COUNT(*) FROM schedule WHERE day_of_week = ? AND subject_name = ?", (day_name_ukr, subject))
         if cursor.fetchone()[0] > 0:
             next_date = from_date + timedelta(days=day_offset)
             conn.close()
             return next_date.strftime("%Y-%m-%d")
-            
     conn.close()
     return None

@@ -2,7 +2,6 @@ from flask import Flask, render_template, jsonify, request
 import os
 import sys
 from datetime import datetime
-import psycopg2.extras
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
@@ -21,7 +20,8 @@ def index():
 @app.route('/api/schedule')
 def get_schedule():
     conn = database_manager.get_db_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = conn.cursor()
+    
     cursor.execute("SELECT day_of_week, lesson_number, subject_name, lesson_time FROM schedule ORDER BY day_of_week, lesson_number")
     rows = cursor.fetchall()
     conn.close()
@@ -30,7 +30,6 @@ def get_schedule():
     for row in rows:
         day = row['day_of_week']
         if day in schedule_data:
-            # Вот здесь исправление - мы переименовываем ключи
             schedule_data[day].append({
                 'number': row['lesson_number'],
                 'subject': row['subject_name'],
