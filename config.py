@@ -1,3 +1,7 @@
-# config.py
-TELEGRAM_BOT_TOKEN = "7788248308:AAFAoFbqf5O5JKbD3ZT9ZUD6f5YB8GwTDEs"
-WEBAPP_URL = "https://4aa375740474.ngrok-free.app/"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+WEBAPP_URL = os.getenv("WEBAPP_URL")
