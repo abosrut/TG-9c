@@ -30,7 +30,12 @@ def get_schedule():
     for row in rows:
         day = row['day_of_week']
         if day in schedule_data:
-            schedule_data[day].append(dict(row))
+            # Вот здесь исправление - мы переименовываем ключи
+            schedule_data[day].append({
+                'number': row['lesson_number'],
+                'subject': row['subject_name'],
+                'time': row['lesson_time']
+            })
             
     return jsonify(schedule_data)
 
